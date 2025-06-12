@@ -25,11 +25,44 @@ namespace MuteInBackground
         [DllImport("user32.dll", SetLastError = true)]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
+        // WinEvent constants for foreground window check
+        private const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+        private const uint WINEVENT_OUTOFCONTEXT = 0;
+        private const uint OBJID_WINDOW = 0;
+        private const uint WINEVENT_SKIPOWNPROCESS = 0X0002;
+
+        // Delegate signature for the WinEvent callback
+        private delegate void WinEventDelegate(
+            IntPtr  hWinEventHook,
+            uint    eventType,
+            IntPtr  hwnd,
+            int     idObject,
+            int     idChild,
+            uint    dwEventThread,
+            uint    dwmsEventTime
+        );
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SetWinEventHook(
+            uint eventMin,
+            uint eventMax,
+            IntPtr hmodWinEventProc,
+            WinEventDelegate lpfnWinEventProc,
+            uint idProcess,
+            uint idThread,
+            uint dwFlags
+        );
+
+        [DllImport("user32.dll")]
+        private static extern bool UnhookWinEvent( IntPtr hWinEventHook );
+
+        private WinEventDelegate    _winDelegate; // keeps callback alive
+        private IntPtr              _winHook;   // hook handle needed to unhook
+
         private MMDeviceEnumerator deviceEnum;
         private MMDevice defaultDevice;
         private AudioSessionManager sessionManager;
 
-        private Timer focusTimer;                   // WinForms Timer for polling rate
         private List<string> mutedProcessNames;     // List of process names to auto-mute
         private string lastForegroundMonitored = null;  // Used to track the foreground app to stop repeated COM calls
 
@@ -40,78 +73,68 @@ namespace MuteInBackground
             InitAudio();
         }
 
-        /// <summary>
-        /// StartFocusPolling calls OnFocusCheck every 500ms.
-        /// </summary>
-        private void StartFocusPolling()
+        // Callback method Win32 calls
+        private void WinEventProc(
+            IntPtr hWinEventHook,
+            uint eventType,
+            IntPtr hwnd,
+            int idObject,
+            int idChild,
+            uint dwEventThread,
+            uint dwmsEventTime
+        )
         {
-            if (focusTimer == null)
+            // Ignore all events unless top window change
+            if (idObject != OBJID_WINDOW) return;
+
+            BeginInvoke(new Action(() => HandleForegroundChange(hwnd)));
+        }
+
+        private static readonly HashSet<string> _skipProcs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                focusTimer = new Timer();
-                focusTimer.Interval = 500;
-                focusTimer.Tick += OnFocusCheck;
-            }
-            focusTimer.Start();
-        }
+                "explorer",
+                "ShellExperienceHost",
+                "SearchUI"
+            };
 
-        /// <summary>
-        /// StopFocuPolling stops the focusTimer.
-        /// </summary>
-        private void StopFocusPolling()
+        private void HandleForegroundChange(IntPtr hwnd)
         {
-            focusTimer?.Stop();
-        }
+            if (hwnd == IntPtr.Zero) return;
 
-        /// <summary>
-        /// OnFocusCheck gets the current forground app and mutes/unmutes it depending if it is on the monitored apps list.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void OnFocusCheck(object sender, EventArgs e)
-        {
-            // Get window currently in the foreground
-            IntPtr hwnd = GetForegroundWindow();
-            if (hwnd == IntPtr.Zero) return;    // no window is found
-
-            // Get the process ID from the HWND
+            // Get process ID of the window
             GetWindowThreadProcessId(hwnd, out uint pid);
             if (pid == 0) return;
 
-            // Convert the pid to a process name
             string procName;
             try { procName = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant(); }
-            catch { return; } // process might have exited
+            catch { return; }   // process exited before we can get its name
 
-            //DEBUG
-            lblDebug.Text = string.Join(", ", mutedProcessNames);
+            if (_skipProcs.Contains(procName))
+                return;    // ignore any OS shell windows
 
-            bool isMonitored = mutedProcessNames.Contains(procName);
+            // Do nothing if window was handled already and nothing changed
+            if (procName == lastForegroundMonitored) return;
 
-            // Skip is foreground app is monitored and stayed the same
-            if (isMonitored && procName == lastForegroundMonitored) return;
-            // Skip if foreground app is not monitored and all monitored apps are already muted
-            if (!isMonitored && lastForegroundMonitored == null) return;
+            lastForegroundMonitored = procName;
 
-            // Update foreground state
-            lastForegroundMonitored = isMonitored ? procName : null;
-
-            if (isMonitored)
+            // If the process is in the monitored list, unmute it and mute all the others
+            if (mutedProcessNames.Contains(procName))
             {
                 UnmuteProcessAudio(procName);
                 lblStatus.Text = $"Unmuted: {procName}";
-                // Any other process that is not in the foreground (background), mute it
-                foreach (var other in mutedProcessNames.Where(n => n != procName))
-                    MuteProcessAudio(other);
+                // Mute all other monitored background processes
+                foreach (var backgroundProc in mutedProcessNames.Where(n => n != procName))
+                    MuteProcessAudio(backgroundProc);
             }
+            // Otherwise mute all monitored apps
             else
             {
-                // If foreground is not monitored, mute all the monitored apps
-                foreach (var procToMute in mutedProcessNames)
-                    MuteProcessAudio(procToMute);
-                // Update "Status" label
-                lblStatus.Text = mutedProcessNames.Count > 0 ? $"Muting: {string.Join(", ", mutedProcessNames)}" : "No apps to mute";
+                foreach (var procs in mutedProcessNames)
+                    MuteProcessAudio(procs);
+                lblStatus.Text = (mutedProcessNames.Count > 0) ? $"Muting {string.Join(", ", mutedProcessNames)}" : "No apps to mute";
             }
         }
+
 
         /// <summary>
         /// InitAudio initiates all the objects used to interact with windows audio API.
@@ -196,12 +219,35 @@ namespace MuteInBackground
         {
             if (chkEnableAutoMute.Checked)
             {
-                StartFocusPolling();
+                // Create delegate instance so it isn't garbage collected
+                _winDelegate = new WinEventDelegate(WinEventProc);
+
+                // Install hook so WinEventProc() is called whenever EVENT_SYSTEM_FOREGROUND happens
+                _winHook = SetWinEventHook(
+                    EVENT_SYSTEM_FOREGROUND,
+                    EVENT_SYSTEM_FOREGROUND,
+                    IntPtr.Zero,
+                    _winDelegate,   // callback
+                    0,
+                    0,
+                    WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS
+                );
+
+                // Force call to handler once to be in a known state
+                HandleForegroundChange(GetForegroundWindow());
+
                 lblStatus.Text = "Auto-Mute ENABLED";
             }
             else
             {
-                StopFocusPolling();
+                // Remove hook
+                if (_winHook != IntPtr.Zero)
+                {
+                    UnhookWinEvent(_winHook);
+                    _winHook = IntPtr.Zero;
+                }
+
+                // Restore all app volumes
                 UnmuteAllMonitoredApps();
                 lblStatus.Text = "Auto-Mute DISABLED";
             }
@@ -250,6 +296,16 @@ namespace MuteInBackground
             lstApps.Items.Remove(procName);
         }
 
+        // Clean up the hook when the form closes
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            // Undo the hook so Windows stops calling
+            if (_winHook != IntPtr.Zero)
+                UnhookWinEvent(_winHook);
+            base.OnFormClosing(e);
+        }
+
+        // DEBUG methods
         private void DumpAllSessions()
         {
             var sb = new StringBuilder();
@@ -267,7 +323,7 @@ namespace MuteInBackground
             }
             MessageBox.Show(sb.ToString(), "All Audio Sessions");
         }
-
+        // DEBUG methods
         private string GetProcessNameSafe(uint pid)
         {
             try { return Process.GetProcessById((int)pid).ProcessName; }

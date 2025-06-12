@@ -37,7 +37,6 @@
             this.btnRemove = new System.Windows.Forms.Button();
             this.lblMonitoredApps = new System.Windows.Forms.Label();
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.lblDebug = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // chkEnableAutoMute
@@ -102,21 +101,11 @@
             this.contextMenuStrip1.Name = "contextMenuStrip1";
             this.contextMenuStrip1.Size = new System.Drawing.Size(61, 4);
             // 
-            // lblDebug
-            // 
-            this.lblDebug.AutoSize = true;
-            this.lblDebug.Location = new System.Drawing.Point(23, 292);
-            this.lblDebug.Name = "lblDebug";
-            this.lblDebug.Size = new System.Drawing.Size(45, 13);
-            this.lblDebug.TabIndex = 7;
-            this.lblDebug.Text = "DEBUG";
-            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(314, 314);
-            this.Controls.Add(this.lblDebug);
             this.Controls.Add(this.lblMonitoredApps);
             this.Controls.Add(this.btnRemove);
             this.Controls.Add(this.btnAdd);
@@ -140,7 +129,6 @@
         private System.Windows.Forms.Button btnRemove;
         private System.Windows.Forms.Label lblMonitoredApps;
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
-        private System.Windows.Forms.Label lblDebug;
     }
 }
 
