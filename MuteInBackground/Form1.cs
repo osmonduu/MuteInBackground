@@ -363,5 +363,10 @@ namespace MuteInBackground
             try { return Process.GetProcessById((int)pid).ProcessName; }
             catch (ArgumentException) { return null; }
         }
+
+        private void tableLayoutPanel1_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
     }
 }
