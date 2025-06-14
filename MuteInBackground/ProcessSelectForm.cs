@@ -10,13 +10,37 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 
 using NAudio.CoreAudioApi;
+using NAudio.CoreAudioApi.Interfaces;
 
 namespace MuteInBackground
 {
     public partial class ProcessSelectForm : Form
     {
         public string SelectedProcessName { get; private set; }
-        public ProcessSelectForm(List<AudioSessionControl> sessions)
+
+        public void AddSessionControl(IAudioSessionControl s)
+        {
+            // Wrap IAudioSessionControl with AudioSessionControl to expose IAudioSessionControl2 functionality
+            var wrapper = new AudioSessionControl(s);
+
+            if (wrapper.State == AudioSessionState.AudioSessionStateExpired) return;
+
+            var pid = (int)wrapper.GetProcessID;
+            if (pid == 0) return;
+
+            string processName;
+            try { processName = Process.GetProcessById(pid).ProcessName; }
+            catch { return; }
+
+            string text = $"{processName} (PID {pid})";
+            if (!lstSessions.Items.Contains(text))
+                lstSessions.Items.Add(text);
+        }
+
+        public ProcessSelectForm(
+            AudioSessionManager sessionManager,
+            List<AudioSessionControl> sessions
+        )
         {
             InitializeComponent();
 
