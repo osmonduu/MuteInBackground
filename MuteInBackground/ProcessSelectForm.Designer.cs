@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ProcessSelectForm));
             this.btnSelect = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
@@ -117,7 +118,7 @@
             this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panel1.Location = new System.Drawing.Point(3, 3);
             this.panel1.Name = "panel1";
-            this.panel1.Padding = new System.Windows.Forms.Padding(10, 15, 10, 10);
+            this.panel1.Padding = new System.Windows.Forms.Padding(10, 15, 10, 5);
             this.panel1.Size = new System.Drawing.Size(423, 265);
             this.panel1.TabIndex = 2;
             // 
@@ -129,7 +130,7 @@
             this.lstSessions.ItemHeight = 24;
             this.lstSessions.Location = new System.Drawing.Point(10, 15);
             this.lstSessions.Name = "lstSessions";
-            this.lstSessions.Size = new System.Drawing.Size(403, 240);
+            this.lstSessions.Size = new System.Drawing.Size(403, 245);
             this.lstSessions.TabIndex = 1;
             // 
             // ProcessSelectForm
@@ -140,7 +141,9 @@
             this.CancelButton = this.btnCancel;
             this.ClientSize = new System.Drawing.Size(429, 311);
             this.Controls.Add(this.tableLayoutPanel1);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "ProcessSelectForm";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "Select an Application";
             this.Load += new System.EventHandler(this.ProcessSelectForm_Load);
             this.tableLayoutPanel1.ResumeLayout(false);

@@ -29,23 +29,31 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.timer1 = new System.Windows.Forms.Timer(this.components);
             this.lblStatus = new System.Windows.Forms.Label();
             this.lblMonitoredApps = new System.Windows.Forms.Label();
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.tsmShow = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmExit = new System.Windows.Forms.ToolStripMenuItem();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
             this.flowLayoutPanel3 = new System.Windows.Forms.FlowLayoutPanel();
-            this.chkEnableAutoMute = new System.Windows.Forms.CheckBox();
             this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
+            this.chkEnableAutoMute = new System.Windows.Forms.CheckBox();
+            this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
+            this.btnSettings = new System.Windows.Forms.Button();
             this.panel1 = new System.Windows.Forms.Panel();
             this.lstApps = new System.Windows.Forms.ListBox();
             this.tableLayoutPanel3 = new System.Windows.Forms.TableLayoutPanel();
             this.flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
             this.btnAdd = new System.Windows.Forms.Button();
             this.btnRemove = new System.Windows.Forms.Button();
+            this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
+            this.contextMenuStrip1.SuspendLayout();
             this.tableLayoutPanel1.SuspendLayout();
             this.flowLayoutPanel3.SuspendLayout();
             this.tableLayoutPanel2.SuspendLayout();
+            this.flowLayoutPanel1.SuspendLayout();
             this.panel1.SuspendLayout();
             this.tableLayoutPanel3.SuspendLayout();
             this.flowLayoutPanel2.SuspendLayout();
@@ -54,27 +62,47 @@
             // lblStatus
             // 
             this.lblStatus.AutoSize = true;
-            this.lblStatus.Location = new System.Drawing.Point(0, 10);
-            this.lblStatus.Margin = new System.Windows.Forms.Padding(0, 10, 0, 0);
+            this.lblStatus.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F);
+            this.lblStatus.Location = new System.Drawing.Point(0, 0);
+            this.lblStatus.Margin = new System.Windows.Forms.Padding(0);
             this.lblStatus.Name = "lblStatus";
-            this.lblStatus.Size = new System.Drawing.Size(60, 13);
+            this.lblStatus.Padding = new System.Windows.Forms.Padding(0, 5, 0, 0);
+            this.lblStatus.Size = new System.Drawing.Size(67, 20);
             this.lblStatus.TabIndex = 1;
             this.lblStatus.Text = "Status: Idle";
             // 
             // lblMonitoredApps
             // 
             this.lblMonitoredApps.AutoSize = true;
-            this.lblMonitoredApps.Location = new System.Drawing.Point(0, 38);
+            this.lblMonitoredApps.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F);
+            this.lblMonitoredApps.Location = new System.Drawing.Point(0, 35);
             this.lblMonitoredApps.Margin = new System.Windows.Forms.Padding(0, 15, 0, 0);
             this.lblMonitoredApps.Name = "lblMonitoredApps";
-            this.lblMonitoredApps.Size = new System.Drawing.Size(84, 13);
+            this.lblMonitoredApps.Size = new System.Drawing.Size(96, 15);
             this.lblMonitoredApps.TabIndex = 5;
             this.lblMonitoredApps.Text = "Monitored Apps:";
             // 
             // contextMenuStrip1
             // 
+            this.contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmShow,
+            this.tsmExit});
             this.contextMenuStrip1.Name = "contextMenuStrip1";
-            this.contextMenuStrip1.Size = new System.Drawing.Size(61, 4);
+            this.contextMenuStrip1.Size = new System.Drawing.Size(104, 48);
+            // 
+            // tsmShow
+            // 
+            this.tsmShow.Name = "tsmShow";
+            this.tsmShow.Size = new System.Drawing.Size(103, 22);
+            this.tsmShow.Text = "Show";
+            this.tsmShow.Click += new System.EventHandler(this.tsmShow_Click);
+            // 
+            // tsmExit
+            // 
+            this.tsmExit.Name = "tsmExit";
+            this.tsmExit.Size = new System.Drawing.Size(103, 22);
+            this.tsmExit.Text = "Exit";
+            this.tsmExit.Click += new System.EventHandler(this.tsmExit_Click);
             // 
             // tableLayoutPanel1
             // 
@@ -95,7 +123,6 @@
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.tableLayoutPanel1.Size = new System.Drawing.Size(326, 348);
             this.tableLayoutPanel1.TabIndex = 6;
-            this.tableLayoutPanel1.Paint += new System.Windows.Forms.PaintEventHandler(this.tableLayoutPanel1_Paint);
             // 
             // flowLayoutPanel3
             // 
@@ -105,22 +132,11 @@
             this.flowLayoutPanel3.Controls.Add(this.lblMonitoredApps);
             this.flowLayoutPanel3.Dock = System.Windows.Forms.DockStyle.Fill;
             this.flowLayoutPanel3.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
-            this.flowLayoutPanel3.Location = new System.Drawing.Point(13, 42);
+            this.flowLayoutPanel3.Location = new System.Drawing.Point(13, 49);
             this.flowLayoutPanel3.Name = "flowLayoutPanel3";
             this.flowLayoutPanel3.Padding = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.flowLayoutPanel3.Size = new System.Drawing.Size(300, 53);
+            this.flowLayoutPanel3.Size = new System.Drawing.Size(300, 52);
             this.flowLayoutPanel3.TabIndex = 7;
-            // 
-            // chkEnableAutoMute
-            // 
-            this.chkEnableAutoMute.AutoSize = true;
-            this.chkEnableAutoMute.Location = new System.Drawing.Point(94, 3);
-            this.chkEnableAutoMute.Name = "chkEnableAutoMute";
-            this.chkEnableAutoMute.Size = new System.Drawing.Size(111, 17);
-            this.chkEnableAutoMute.TabIndex = 0;
-            this.chkEnableAutoMute.Text = "Enable Auto-Mute";
-            this.chkEnableAutoMute.UseVisualStyleBackColor = true;
-            this.chkEnableAutoMute.CheckedChanged += new System.EventHandler(this.chkEnableAutoMute_CheckedChanged);
             // 
             // tableLayoutPanel2
             // 
@@ -131,33 +147,77 @@
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.tableLayoutPanel2.Controls.Add(this.chkEnableAutoMute, 1, 0);
+            this.tableLayoutPanel2.Controls.Add(this.flowLayoutPanel1, 2, 0);
             this.tableLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tableLayoutPanel2.Location = new System.Drawing.Point(13, 13);
             this.tableLayoutPanel2.Name = "tableLayoutPanel2";
             this.tableLayoutPanel2.RowCount = 1;
             this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel2.Size = new System.Drawing.Size(300, 23);
+            this.tableLayoutPanel2.Size = new System.Drawing.Size(300, 30);
             this.tableLayoutPanel2.TabIndex = 8;
+            // 
+            // chkEnableAutoMute
+            // 
+            this.chkEnableAutoMute.AutoSize = true;
+            this.chkEnableAutoMute.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F);
+            this.chkEnableAutoMute.Location = new System.Drawing.Point(88, 3);
+            this.chkEnableAutoMute.Name = "chkEnableAutoMute";
+            this.chkEnableAutoMute.Size = new System.Drawing.Size(124, 19);
+            this.chkEnableAutoMute.TabIndex = 0;
+            this.chkEnableAutoMute.Text = "Enable Auto-Mute";
+            this.chkEnableAutoMute.UseVisualStyleBackColor = true;
+            this.chkEnableAutoMute.CheckedChanged += new System.EventHandler(this.chkEnableAutoMute_CheckedChanged);
+            // 
+            // flowLayoutPanel1
+            // 
+            this.flowLayoutPanel1.AutoSize = true;
+            this.flowLayoutPanel1.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.flowLayoutPanel1.Controls.Add(this.btnSettings);
+            this.flowLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.flowLayoutPanel1.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
+            this.flowLayoutPanel1.Location = new System.Drawing.Point(215, 0);
+            this.flowLayoutPanel1.Margin = new System.Windows.Forms.Padding(0);
+            this.flowLayoutPanel1.Name = "flowLayoutPanel1";
+            this.flowLayoutPanel1.Size = new System.Drawing.Size(85, 30);
+            this.flowLayoutPanel1.TabIndex = 3;
+            // 
+            // btnSettings
+            // 
+            this.btnSettings.AutoSize = true;
+            this.btnSettings.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.btnSettings.BackColor = System.Drawing.SystemColors.Control;
+            this.btnSettings.FlatAppearance.BorderColor = System.Drawing.SystemColors.ButtonShadow;
+            this.btnSettings.FlatAppearance.BorderSize = 0;
+            this.btnSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSettings.ForeColor = System.Drawing.SystemColors.ControlText;
+            this.btnSettings.Image = ((System.Drawing.Image)(resources.GetObject("btnSettings.Image")));
+            this.btnSettings.Location = new System.Drawing.Point(55, 0);
+            this.btnSettings.Margin = new System.Windows.Forms.Padding(0);
+            this.btnSettings.Name = "btnSettings";
+            this.btnSettings.Size = new System.Drawing.Size(30, 30);
+            this.btnSettings.TabIndex = 2;
+            this.btnSettings.UseVisualStyleBackColor = false;
+            this.btnSettings.Click += new System.EventHandler(this.btnSettings_Click);
             // 
             // panel1
             // 
             this.panel1.Controls.Add(this.lstApps);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panel1.Location = new System.Drawing.Point(13, 101);
+            this.panel1.Location = new System.Drawing.Point(13, 107);
             this.panel1.Name = "panel1";
             this.panel1.Padding = new System.Windows.Forms.Padding(10, 0, 10, 0);
-            this.panel1.Size = new System.Drawing.Size(300, 205);
+            this.panel1.Size = new System.Drawing.Size(300, 195);
             this.panel1.TabIndex = 9;
             // 
             // lstApps
             // 
             this.lstApps.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lstApps.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F);
+            this.lstApps.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Bold);
             this.lstApps.FormattingEnabled = true;
             this.lstApps.ItemHeight = 20;
             this.lstApps.Location = new System.Drawing.Point(10, 0);
             this.lstApps.Name = "lstApps";
-            this.lstApps.Size = new System.Drawing.Size(280, 205);
+            this.lstApps.Size = new System.Drawing.Size(280, 195);
             this.lstApps.TabIndex = 3;
             // 
             // tableLayoutPanel3
@@ -169,12 +229,12 @@
             this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.tableLayoutPanel3.Controls.Add(this.flowLayoutPanel2, 1, 0);
             this.tableLayoutPanel3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel3.Location = new System.Drawing.Point(10, 309);
+            this.tableLayoutPanel3.Location = new System.Drawing.Point(10, 305);
             this.tableLayoutPanel3.Margin = new System.Windows.Forms.Padding(0);
             this.tableLayoutPanel3.Name = "tableLayoutPanel3";
             this.tableLayoutPanel3.RowCount = 1;
             this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel3.Size = new System.Drawing.Size(306, 29);
+            this.tableLayoutPanel3.Size = new System.Drawing.Size(306, 33);
             this.tableLayoutPanel3.TabIndex = 10;
             // 
             // flowLayoutPanel2
@@ -186,12 +246,13 @@
             this.flowLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Fill;
             this.flowLayoutPanel2.Location = new System.Drawing.Point(58, 3);
             this.flowLayoutPanel2.Name = "flowLayoutPanel2";
-            this.flowLayoutPanel2.Size = new System.Drawing.Size(190, 23);
+            this.flowLayoutPanel2.Size = new System.Drawing.Size(190, 27);
             this.flowLayoutPanel2.TabIndex = 11;
             this.flowLayoutPanel2.WrapContents = false;
             // 
             // btnAdd
             // 
+            this.btnAdd.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F);
             this.btnAdd.Location = new System.Drawing.Point(0, 0);
             this.btnAdd.Margin = new System.Windows.Forms.Padding(0, 0, 20, 0);
             this.btnAdd.Name = "btnAdd";
@@ -203,14 +264,23 @@
             // 
             // btnRemove
             // 
+            this.btnRemove.AutoSize = true;
+            this.btnRemove.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F);
             this.btnRemove.Location = new System.Drawing.Point(115, 0);
             this.btnRemove.Margin = new System.Windows.Forms.Padding(20, 0, 0, 0);
             this.btnRemove.Name = "btnRemove";
-            this.btnRemove.Size = new System.Drawing.Size(75, 23);
+            this.btnRemove.Size = new System.Drawing.Size(75, 27);
             this.btnRemove.TabIndex = 4;
             this.btnRemove.Text = "Remove";
             this.btnRemove.UseVisualStyleBackColor = true;
             this.btnRemove.Click += new System.EventHandler(this.btnRemove_Click);
+            // 
+            // notifyIcon1
+            // 
+            this.notifyIcon1.ContextMenuStrip = this.contextMenuStrip1;
+            this.notifyIcon1.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon1.Icon")));
+            this.notifyIcon1.Text = "MuteInBackground";
+            this.notifyIcon1.DoubleClick += new System.EventHandler(this.notifyIcon1_DoubleClick);
             // 
             // Form1
             // 
@@ -218,18 +288,24 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(326, 348);
             this.Controls.Add(this.tableLayoutPanel1);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "Form1";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "MuteInBackground";
+            this.contextMenuStrip1.ResumeLayout(false);
             this.tableLayoutPanel1.ResumeLayout(false);
             this.tableLayoutPanel1.PerformLayout();
             this.flowLayoutPanel3.ResumeLayout(false);
             this.flowLayoutPanel3.PerformLayout();
             this.tableLayoutPanel2.ResumeLayout(false);
             this.tableLayoutPanel2.PerformLayout();
+            this.flowLayoutPanel1.ResumeLayout(false);
+            this.flowLayoutPanel1.PerformLayout();
             this.panel1.ResumeLayout(false);
             this.tableLayoutPanel3.ResumeLayout(false);
             this.tableLayoutPanel3.PerformLayout();
             this.flowLayoutPanel2.ResumeLayout(false);
+            this.flowLayoutPanel2.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -250,6 +326,11 @@
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel2;
         private System.Windows.Forms.Button btnAdd;
         private System.Windows.Forms.Button btnRemove;
+        private System.Windows.Forms.NotifyIcon notifyIcon1;
+        private System.Windows.Forms.ToolStripMenuItem tsmShow;
+        private System.Windows.Forms.ToolStripMenuItem tsmExit;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
+        private System.Windows.Forms.Button btnSettings;
     }
 }
 

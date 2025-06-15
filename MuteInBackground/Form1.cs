@@ -13,8 +13,12 @@ using System.Windows.Forms;
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
 
+using Microsoft.Win32;
+using System.IO;
+
 namespace MuteInBackground
 {
+    
     public partial class Form1 : Form
     {
         // GetForegroundWindow() -> returns HWND of the active window
@@ -71,6 +75,10 @@ namespace MuteInBackground
             InitializeComponent();
             mutedProcessNames = new List<string>();
             InitAudio();
+
+            // Read stored RunAtStartup for consistency
+            if (Properties.Settings.Default.RunAtStartup)
+                StartupHelper.UpdateStartupShortcut(true);
         }
 
         // Callback method Win32 calls
@@ -209,7 +217,7 @@ namespace MuteInBackground
         }
 
         /// <summary>
-        /// UnmuteAllMonitoredApps restores all audio by unmuting all sessions previously monitored.
+        /// UnmuteAllMonitoredApps restores all audio by unmuting all monitored sessions.
         /// </summary>
         private void UnmuteAllMonitoredApps()
         {
@@ -321,19 +329,105 @@ namespace MuteInBackground
             mutedProcessNames.Remove(procName);
             lstApps.Items.Remove(procName);
         }
+
         /// <summary>
-        /// Override OnFormClosing to additionally clean up the hook when the form closes.
+        /// Override OnFormClosing to check for "minimize on close"
+        /// and additionally clean up the hook when the form closes.
         /// </summary>
         /// <param name="e"></param>
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            // Check for minimize on close 
+            bool minimizeOnClose = Properties.Settings.Default.MinimizeOnClose;
+            // If user checked "Minimize On Close" AND user clicks 'X' button
+            if (minimizeOnClose && e.CloseReason == CloseReason.UserClosing)
+            {
+                // Cancel closing the form, hide the window, show application icon in tray
+                e.Cancel = true;
+                this.Hide();
+                notifyIcon1.Visible = true;
+                return;
+            }
+
             // Undo the hook so Windows stops calling
             if (_winHook != IntPtr.Zero)
+            {
                 UnhookWinEvent(_winHook);
+                _winHook = IntPtr.Zero;
+            }
+            // Call base so any other cleanup can run
             base.OnFormClosing(e);
         }
 
-        // DEBUG methods
+        /// <summary>
+        /// GetProcessNameSafe takes pid and returns a process name if valid. 
+        /// Otherwise bypass ArgumentException and return null.
+        /// </summary>
+        /// <param name="pid"></param>
+        /// <returns></returns>
+        private string GetProcessNameSafe(uint pid)
+        {
+            try { return Process.GetProcessById((int)pid).ProcessName; }
+            catch (ArgumentException) { return null; }
+        }
+
+        /// <summary>
+        /// tsmShow_Click shows the application when the user selects the "Show" option in the context menu
+        /// shown by right-clicking the tray icon when the application is minimized. 
+        /// It is a ToolStripMenuItem.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void tsmShow_Click(object sender, EventArgs e)
+        {
+            // Unhide window and hide tray icon
+            this.Show();
+            this.WindowState = FormWindowState.Normal;
+            notifyIcon1.Visible = false;
+        }
+
+        /// <summary>
+        /// tsmExit_Click closes the application when the user selects the "Exit" option in the context menu
+        /// shown by right-clicking the tray icon when the application is minimized. 
+        /// It is a ToolStripMenuItem.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void tsmExit_Click(object sender, EventArgs e)
+        {
+            notifyIcon1.Visible = false;    // hide tray icon
+            Application.Exit();             // fully close the app
+        }
+
+        /// <summary>
+        /// notifyicon1_DoubleClick shows the application when the user double-clicks the tray icon.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void notifyIcon1_DoubleClick(object sender, EventArgs e)
+        {
+            // Unhide window and hide tray icon
+            this.Show();
+            this.WindowState = FormWindowState.Normal;
+            notifyIcon1.Visible = false;
+        }
+
+        /// <summary>
+        /// btnSettings_Click shows the SettingsForm dialog when the user clicks the settings button.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void btnSettings_Click(object sender, EventArgs e)
+        {
+            using (var dlg = new SettingsForm())
+            {
+                dlg.ShowDialog();
+            }
+        }
+
+        /// <summary>
+        /// Debug method to show all sessions
+        /// </summary>
         private void DumpAllSessions()
         {
             var sb = new StringBuilder();
@@ -351,22 +445,43 @@ namespace MuteInBackground
             }
             MessageBox.Show(sb.ToString(), "All Audio Sessions");
         }
-        
+
+    }
+
+    /// <summary>
+    /// StartupHelper is used to add or remove app from Windows registry key to automatically run on startup.
+    /// </summary>
+    static class StartupHelper
+    {
+        // Registery path under HKEY_CURRENT_USER (HKCU) for startup apps
+        private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+
+        private const string AppName = "MuteInBackground";
+
         /// <summary>
-        /// GetProcessNameSafe takes pid and returns a process name if valid. Otherwise bypass ArgumentException
-        /// and return null.
+        /// UpdateStartupShortcut adds or removes the app from startup.
         /// </summary>
-        /// <param name="pid"></param>
-        /// <returns></returns>
-        private string GetProcessNameSafe(uint pid)
+        /// <param name="enable"></param>
+        public static void UpdateStartupShortcut(bool enable)
         {
-            try { return Process.GetProcessById((int)pid).ProcessName; }
-            catch (ArgumentException) { return null; }
-        }
-
-        private void tableLayoutPanel1_Paint(object sender, PaintEventArgs e)
-        {
-
+            // Open HKCU key settings with write acess. Will automatically block and dispose when done.
+            using (var key = Registry.CurrentUser.OpenSubKey(RunKey, true))
+            {
+                // Enbaling run on launch
+                if (enable)
+                {
+                    // Full path to this app's executable
+                    string exePath = Application.ExecutablePath;
+                    // Write new string under Run key so Windows will launch at login
+                    key.SetValue(AppName, $"\"{exePath}\"");
+                }
+                // Disabling run on launch
+                else
+                {
+                    // Delete the entry if it exists and don't throw an exception if missing entry
+                    key.DeleteValue(AppName, false);
+                }
+            }
         }
     }
 }
