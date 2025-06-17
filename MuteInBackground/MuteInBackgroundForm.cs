@@ -19,7 +19,7 @@ using System.IO;
 namespace MuteInBackground
 {
     
-    public partial class Form1 : Form
+    public partial class MuteInBackgroundForm : Form
     {
         // GetForegroundWindow() -> returns HWND of the active window
         [DllImport("user32.dll")]
@@ -70,7 +70,7 @@ namespace MuteInBackground
         private List<string> mutedProcessNames;     // list of process names to be monitored
         private string lastForegroundMonitored = null;  // used to track the previous foreground app to stop repeated COM calls which causes stuttering audio
 
-        public Form1()
+        public MuteInBackgroundForm()
         {
             InitializeComponent();
             mutedProcessNames = new List<string>();
@@ -81,7 +81,16 @@ namespace MuteInBackground
                 StartupHelper.UpdateStartupShortcut(true);
         }
 
-        // Callback method Win32 calls
+        /// <summary>
+        /// Callback method Win32 calls whenever the foreground window changes.
+        /// </summary>
+        /// <param name="hWinEventHook"></param>
+        /// <param name="eventType"></param>
+        /// <param name="hwnd"></param>
+        /// <param name="idObject"></param>
+        /// <param name="idChild"></param>
+        /// <param name="dwEventThread"></param>
+        /// <param name="dwmsEventTime"></param>
         private void WinEventProc(
             IntPtr hWinEventHook,
             uint eventType,
@@ -94,7 +103,7 @@ namespace MuteInBackground
         {
             // Ignore all events unless top window change
             if (idObject != OBJID_WINDOW) return;
-
+            // P/Invoke HandleForegroundChange in order to work in UI thread and access UI variables.
             BeginInvoke(new Action(() => HandleForegroundChange(hwnd)));
         }
 
@@ -105,6 +114,11 @@ namespace MuteInBackground
                 "SearchUI"
             };
 
+        /// <summary>
+        /// Gets the foreground window process and mutes/unmutes
+        /// the process based on if it is on the monitored apps list (mutedProcessNames).
+        /// </summary>
+        /// <param name="hwnd"></param>
         private void HandleForegroundChange(IntPtr hwnd)
         {
             if (hwnd == IntPtr.Zero) return;
@@ -147,7 +161,7 @@ namespace MuteInBackground
 
 
         /// <summary>
-        /// InitAudio initiates all the objects used to interact with windows audio API.
+        /// Initiates all the objects used to interact with windows audio API.
         /// </summary>
         private void InitAudio()
         {
@@ -160,7 +174,7 @@ namespace MuteInBackground
         }
 
         /// <summary>
-        /// MuteProcessAudio mutes the process by name.
+        /// Mutes the process by name.
         /// </summary>
         /// <param name="processName"></param>
         private void MuteProcessAudio(string processName)
@@ -189,7 +203,7 @@ namespace MuteInBackground
         }
 
         /// <summary>
-        /// UnmuteProcessAudio unmutes the process by name.
+        /// Unmutes the process by name.
         /// </summary>
         /// <param name="processName"></param>
         private void UnmuteProcessAudio(string processName)
@@ -217,7 +231,7 @@ namespace MuteInBackground
         }
 
         /// <summary>
-        /// UnmuteAllMonitoredApps restores all audio by unmuting all monitored sessions.
+        /// Restores all audio by unmuting all monitored sessions.
         /// </summary>
         private void UnmuteAllMonitoredApps()
         {
@@ -225,11 +239,17 @@ namespace MuteInBackground
                 UnmuteProcessAudio(name);
         }
 
+        /// <summary>
+        /// When checked, install windows event hook to call WinEventProc() whenever the foreground window changes.
+        /// Otherwise, remove the hook if it exists and unmute all the apps that were previously monitored.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void chkEnableAutoMute_CheckedChanged(object sender, EventArgs e)
         {
             if (chkEnableAutoMute.Checked)
             {
-                // Create and store delegate instance so it isn't garbage collected
+                // Create and store delegate instance in variable so it isn't garbage collected
                 _winDelegate = new WinEventDelegate(WinEventProc);
 
                 // Install hook so WinEventProc() is called whenever EVENT_SYSTEM_FOREGROUND fires
@@ -264,6 +284,11 @@ namespace MuteInBackground
             }
         }
 
+        /// <summary>
+        /// User chooses an application from ProcessSelectForm and it is added to the list of monitored apps.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void btnAdd_Click(object sender, EventArgs e)
         {
             // Initialize new temporary enumerator and session manager to get up-to-date sessions
@@ -282,7 +307,7 @@ namespace MuteInBackground
                 .Where(s => s.State != AudioSessionState.AudioSessionStateExpired && s.GetProcessID != 0)
                 .ToList();
 
-            // Show process selection form with only active audio sessions
+            // Show process selection form with only up-to-date audio sessions
             using (var dlg = new ProcessSelectForm(sessionManager, activeSessions))
             {
                 // Create handler and subscribe to SessionManager.OnSessionCreated before showing dialog
@@ -299,13 +324,21 @@ namespace MuteInBackground
                 // Show the dialog
                 if (dlg.ShowDialog() == DialogResult.OK)
                 {
-                    // Get the selected process and force lowercase
-                    string selected = dlg.SelectedProcessName.ToLowerInvariant();
+                    // Get the selected process from the dialog
+                    ListViewItem selectedItem = dlg.SelectedProcess;
                     // Avoid adding duplicates to the monitored apps list and form UI
-                    if (!mutedProcessNames.Contains(selected))
+                    if (!mutedProcessNames.Contains(selectedItem.Text))
                     {
-                        mutedProcessNames.Add(selected);
-                        lstApps.Items.Add(selected);
+                        mutedProcessNames.Add(selectedItem.Tag.ToString());
+                        // Copy any new items from the dlg.ImageListSelectProc to ImageListMain
+                        foreach (string key in dlg.SessionImageList.Images.Keys)
+                        {
+                            if (!imageListMain.Images.ContainsKey(key))
+                                imageListMain.Images.Add(key, dlg.SessionImageList.Images[key]);
+                        }
+                        // Clone the ListViewItem so it isn't owned by dlg.lvSessions
+                        var cloneLVItem = (ListViewItem)selectedItem.Clone();
+                        lvApps.Items.Add(cloneLVItem);
                     }
                 }
 
@@ -317,17 +350,23 @@ namespace MuteInBackground
             tempEnum.Dispose();
         }
 
+        /// <summary>
+        /// Removes the selected item from the UI list.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void btnRemove_Click(object sender, EventArgs e)
         {
             // Do nothing if no app is selected
-            if (lstApps.SelectedItem == null) return;
+            if (lvApps.SelectedItems.Count == 0) return;
 
             // Unmute immediately before removing from monitored apps list and form UI
-            string procName = lstApps.SelectedItem.ToString();
+            ListViewItem lvItem = lvApps.SelectedItems[0];
+            string procName = lvItem.Tag.ToString();
             UnmuteProcessAudio(procName);
 
             mutedProcessNames.Remove(procName);
-            lstApps.Items.Remove(procName);
+            lvApps.Items.Remove(lvItem);
         }
 
         /// <summary>
@@ -360,8 +399,7 @@ namespace MuteInBackground
         }
 
         /// <summary>
-        /// GetProcessNameSafe takes pid and returns a process name if valid. 
-        /// Otherwise bypass ArgumentException and return null.
+        /// Takes pid and returns a process name if valid; otherwise bypass ArgumentException and return null.
         /// </summary>
         /// <param name="pid"></param>
         /// <returns></returns>
@@ -372,7 +410,7 @@ namespace MuteInBackground
         }
 
         /// <summary>
-        /// tsmShow_Click shows the application when the user selects the "Show" option in the context menu
+        /// Shows the application when the user selects the "Show" option in the context menu
         /// shown by right-clicking the tray icon when the application is minimized. 
         /// It is a ToolStripMenuItem.
         /// </summary>
@@ -387,7 +425,7 @@ namespace MuteInBackground
         }
 
         /// <summary>
-        /// tsmExit_Click closes the application when the user selects the "Exit" option in the context menu
+        /// Closes the application when the user selects the "Exit" option in the context menu
         /// shown by right-clicking the tray icon when the application is minimized. 
         /// It is a ToolStripMenuItem.
         /// </summary>
@@ -400,7 +438,7 @@ namespace MuteInBackground
         }
 
         /// <summary>
-        /// notifyicon1_DoubleClick shows the application when the user double-clicks the tray icon.
+        /// Shows the application when the user double-clicks the tray icon.
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -413,7 +451,7 @@ namespace MuteInBackground
         }
 
         /// <summary>
-        /// btnSettings_Click shows the SettingsForm dialog when the user clicks the settings button.
+        /// Shows the SettingsForm dialog when the user clicks the settings button.
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -449,7 +487,7 @@ namespace MuteInBackground
     }
 
     /// <summary>
-    /// StartupHelper is used to add or remove app from Windows registry key to automatically run on startup.
+    /// Used to add or remove app from Windows registry key to automatically run on startup.
     /// </summary>
     static class StartupHelper
     {

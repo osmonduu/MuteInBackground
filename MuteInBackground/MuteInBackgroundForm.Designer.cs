@@ -1,6 +1,6 @@
 ﻿namespace MuteInBackground
 {
-    partial class Form1
+    partial class MuteInBackgroundForm
     {
         /// <summary>
         /// Required designer variable.
@@ -29,7 +29,7 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MuteInBackgroundForm));
             this.timer1 = new System.Windows.Forms.Timer(this.components);
             this.lblStatus = new System.Windows.Forms.Label();
             this.lblMonitoredApps = new System.Windows.Forms.Label();
@@ -43,7 +43,8 @@
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
             this.btnSettings = new System.Windows.Forms.Button();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.lstApps = new System.Windows.Forms.ListBox();
+            this.lvApps = new System.Windows.Forms.ListView();
+            this.imageListMain = new System.Windows.Forms.ImageList(this.components);
             this.tableLayoutPanel3 = new System.Windows.Forms.TableLayoutPanel();
             this.flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
             this.btnAdd = new System.Windows.Forms.Button();
@@ -201,7 +202,7 @@
             // 
             // panel1
             // 
-            this.panel1.Controls.Add(this.lstApps);
+            this.panel1.Controls.Add(this.lvApps);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panel1.Location = new System.Drawing.Point(13, 107);
             this.panel1.Name = "panel1";
@@ -209,16 +210,24 @@
             this.panel1.Size = new System.Drawing.Size(300, 195);
             this.panel1.TabIndex = 9;
             // 
-            // lstApps
+            // lvApps
             // 
-            this.lstApps.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lstApps.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Bold);
-            this.lstApps.FormattingEnabled = true;
-            this.lstApps.ItemHeight = 20;
-            this.lstApps.Location = new System.Drawing.Point(10, 0);
-            this.lstApps.Name = "lstApps";
-            this.lstApps.Size = new System.Drawing.Size(280, 195);
-            this.lstApps.TabIndex = 3;
+            this.lvApps.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lvApps.HideSelection = false;
+            this.lvApps.Location = new System.Drawing.Point(10, 0);
+            this.lvApps.MultiSelect = false;
+            this.lvApps.Name = "lvApps";
+            this.lvApps.Size = new System.Drawing.Size(280, 195);
+            this.lvApps.SmallImageList = this.imageListMain;
+            this.lvApps.TabIndex = 4;
+            this.lvApps.UseCompatibleStateImageBehavior = false;
+            this.lvApps.View = System.Windows.Forms.View.SmallIcon;
+            // 
+            // imageListMain
+            // 
+            this.imageListMain.ColorDepth = System.Windows.Forms.ColorDepth.Depth32Bit;
+            this.imageListMain.ImageSize = new System.Drawing.Size(24, 24);
+            this.imageListMain.TransparentColor = System.Drawing.Color.Transparent;
             // 
             // tableLayoutPanel3
             // 
@@ -282,14 +291,14 @@
             this.notifyIcon1.Text = "MuteInBackground";
             this.notifyIcon1.DoubleClick += new System.EventHandler(this.notifyIcon1_DoubleClick);
             // 
-            // Form1
+            // MuteInBackgroundForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(326, 348);
             this.Controls.Add(this.tableLayoutPanel1);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-            this.Name = "Form1";
+            this.Name = "MuteInBackgroundForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "MuteInBackground";
             this.contextMenuStrip1.ResumeLayout(false);
@@ -321,7 +330,6 @@
         private System.Windows.Forms.CheckBox chkEnableAutoMute;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
         private System.Windows.Forms.Panel panel1;
-        private System.Windows.Forms.ListBox lstApps;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel3;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel2;
         private System.Windows.Forms.Button btnAdd;
@@ -331,6 +339,8 @@
         private System.Windows.Forms.ToolStripMenuItem tsmExit;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
         private System.Windows.Forms.Button btnSettings;
+        private System.Windows.Forms.ListView lvApps;
+        private System.Windows.Forms.ImageList imageListMain;
     }
 }
 

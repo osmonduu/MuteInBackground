@@ -126,13 +126,16 @@
   <assembly alias="System.Drawing" name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
   <data name="btnSettings.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
-        iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
-        YQUAAAAJcEhZcwAACxIAAAsSAdLdfvwAAACWSURBVEhL7ZNRCoMwEETHW6gn0CMo9RRt79XT6Mn8Vgb6
-        MYyLYOJHoXkwYLKTHUhWoPBLbDfrgBtyVfhHfAoiRbRSb7yoeLNIygCgB7BInd/cYy2LdxDuevmhK3yC
-        hi56kqkArNJsBPCQNWv0JOMBbD7dGZB0RW5QOXxA97iefsgNZwGEo9jZmM7fvewxVWoJOP3RCiE7IK+E
-        pTiwcWIAAAAASUVORK5CYII=
+        iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAL
+        DAAACwwBP0AiyAAAAJZJREFUSEvtk1EKgzAQRMdbqCfQIyj1FG3v1dPoyfxWBvoxjItg4keheTBgspMd
+        SFag8EtsN+uAG3JV+Ed8CiJFtFJvvKh4s0jKAKAHsEid39xjLYt3EO56+aErfIKGLnqSqQCs0mwE8JA1
+        a/Qk4wFsPt0ZkHRFblA5fED3uJ5+yA1nAYSj2NmYzt+97DFVagk4/dEKITsgr4SlOLBxYgAAAABJRU5E
+        rkJggg==
 </value>
   </data>
+  <metadata name="imageListMain.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>373, 17</value>
+  </metadata>
   <metadata name="notifyIcon1.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>259, 17</value>
   </metadata>

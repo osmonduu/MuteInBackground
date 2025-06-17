@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ProcessSelectForm));
             this.btnSelect = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
@@ -35,7 +36,8 @@
             this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.lstSessions = new System.Windows.Forms.ListBox();
+            this.lvSessions = new System.Windows.Forms.ListView();
+            this.imageListSelectProc = new System.Windows.Forms.ImageList(this.components);
             this.tableLayoutPanel1.SuspendLayout();
             this.tableLayoutPanel2.SuspendLayout();
             this.flowLayoutPanel1.SuspendLayout();
@@ -114,7 +116,7 @@
             // 
             // panel1
             // 
-            this.panel1.Controls.Add(this.lstSessions);
+            this.panel1.Controls.Add(this.lvSessions);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panel1.Location = new System.Drawing.Point(3, 3);
             this.panel1.Name = "panel1";
@@ -122,16 +124,25 @@
             this.panel1.Size = new System.Drawing.Size(423, 265);
             this.panel1.TabIndex = 2;
             // 
-            // lstSessions
+            // lvSessions
             // 
-            this.lstSessions.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lstSessions.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F);
-            this.lstSessions.FormattingEnabled = true;
-            this.lstSessions.ItemHeight = 24;
-            this.lstSessions.Location = new System.Drawing.Point(10, 15);
-            this.lstSessions.Name = "lstSessions";
-            this.lstSessions.Size = new System.Drawing.Size(403, 245);
-            this.lstSessions.TabIndex = 1;
+            this.lvSessions.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lvSessions.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F);
+            this.lvSessions.HideSelection = false;
+            this.lvSessions.Location = new System.Drawing.Point(10, 15);
+            this.lvSessions.MultiSelect = false;
+            this.lvSessions.Name = "lvSessions";
+            this.lvSessions.Size = new System.Drawing.Size(403, 245);
+            this.lvSessions.SmallImageList = this.imageListSelectProc;
+            this.lvSessions.TabIndex = 2;
+            this.lvSessions.UseCompatibleStateImageBehavior = false;
+            this.lvSessions.View = System.Windows.Forms.View.List;
+            // 
+            // imageListSelectProc
+            // 
+            this.imageListSelectProc.ColorDepth = System.Windows.Forms.ColorDepth.Depth32Bit;
+            this.imageListSelectProc.ImageSize = new System.Drawing.Size(32, 32);
+            this.imageListSelectProc.TransparentColor = System.Drawing.Color.Transparent;
             // 
             // ProcessSelectForm
             // 
@@ -145,7 +156,6 @@
             this.Name = "ProcessSelectForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "Select an Application";
-            this.Load += new System.EventHandler(this.ProcessSelectForm_Load);
             this.tableLayoutPanel1.ResumeLayout(false);
             this.tableLayoutPanel1.PerformLayout();
             this.tableLayoutPanel2.ResumeLayout(false);
@@ -163,6 +173,7 @@
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
         private System.Windows.Forms.Panel panel1;
-        private System.Windows.Forms.ListBox lstSessions;
+        private System.Windows.Forms.ListView lvSessions;
+        private System.Windows.Forms.ImageList imageListSelectProc;
     }
 }

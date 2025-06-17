@@ -22,6 +22,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -79,11 +80,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Form1.cs">
+    <Compile Include="MuteInBackgroundForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Form1.Designer.cs">
-      <DependentUpon>Form1.cs</DependentUpon>
+    <Compile Include="MuteInBackgroundForm.Designer.cs">
+      <DependentUpon>MuteInBackgroundForm.cs</DependentUpon>
     </Compile>
     <Compile Include="ProcessSelectForm.cs">
       <SubType>Form</SubType>
@@ -99,8 +100,8 @@
     <Compile Include="SettingsForm.Designer.cs">
       <DependentUpon>SettingsForm.cs</DependentUpon>
     </Compile>
-    <EmbeddedResource Include="Form1.resx">
-      <DependentUpon>Form1.cs</DependentUpon>
+    <EmbeddedResource Include="MuteInBackgroundForm.resx">
+      <DependentUpon>MuteInBackgroundForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="ProcessSelectForm.resx">
       <DependentUpon>ProcessSelectForm.cs</DependentUpon>
