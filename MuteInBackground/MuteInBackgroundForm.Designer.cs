@@ -160,6 +160,8 @@
             // chkEnableAutoMute
             // 
             this.chkEnableAutoMute.AutoSize = true;
+            this.chkEnableAutoMute.Checked = true;
+            this.chkEnableAutoMute.CheckState = System.Windows.Forms.CheckState.Checked;
             this.chkEnableAutoMute.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F);
             this.chkEnableAutoMute.Location = new System.Drawing.Point(88, 3);
             this.chkEnableAutoMute.Name = "chkEnableAutoMute";

@@ -49,39 +49,33 @@ namespace MuteInBackground
         /// <param name="proc"></param>
         private void AddListViewItem (Process proc)
         {
-            // Check and bypass Win32Exception: Access Denied 
-            string exePath = null;
-            try {exePath = proc.MainModule.FileName;}
-            catch (Win32Exception) {}
-
-            // If do not have permission, use ProcessName and generic icon 
-            string displayName = proc.ProcessName;
-            Icon icon = SystemIcons.Application;    // generic icon
-
-            // If have permission, get friendly display name and its icon
+            // Get display friendly name with version info (if possible)
+            int pid = proc.Id;
+            string exePath = IconHelper.GetExecutablePath(pid);
+            string displayName = proc.ProcessName;  // fallback if not available
             if (!string.IsNullOrEmpty(exePath))
             {
                 try
                 {
                     var vi = FileVersionInfo.GetVersionInfo(exePath);
-                    displayName = (!string.IsNullOrWhiteSpace(vi.FileDescription)) ? vi.FileDescription : vi.ProductName;
-                    icon = Icon.ExtractAssociatedIcon(exePath);
+                    displayName = !string.IsNullOrWhiteSpace(vi.FileDescription) ? vi.FileDescription : vi.ProductName;
                 }
-                catch {}
+                catch { /* stick with processName otherwise */ }
             }
 
-            var bmp = icon.ToBitmap();
+            // Pull the icon
+            Icon icon = IconHelper.GetIconForProcess(pid);
+            string key = string.IsNullOrEmpty(exePath) ? "generic" : exePath.ToLowerInvariant();
 
-            // Add icon to ImageList with its key being the exePath for the app or "generic" if no permission
-            string key = (string.IsNullOrEmpty(exePath)) ? "generic" : exePath.ToLowerInvariant();
+            // Add icon to ImageList
             if (!imageListSelectProc.Images.ContainsKey(key))
-                imageListSelectProc.Images.Add(key, bmp);
+                imageListSelectProc.Images.Add(key, icon.ToBitmap());
 
-            // Create ListViewItem with name + icon and add to the ListView
+            // Create and add ListViewItem
             var item = new ListViewItem(displayName)
             {
                 ImageKey = key,
-                Tag = proc.ProcessName  // store process name for lookup and mute/unmute in Form1.cs
+                Tag = proc.ProcessName
             };
             lvSessions.Items.Add(item);
         }

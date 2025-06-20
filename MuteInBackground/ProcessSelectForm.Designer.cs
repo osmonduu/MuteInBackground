@@ -129,6 +129,7 @@
             this.lvSessions.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lvSessions.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F);
             this.lvSessions.HideSelection = false;
+            this.lvSessions.LargeImageList = this.imageListSelectProc;
             this.lvSessions.Location = new System.Drawing.Point(10, 15);
             this.lvSessions.MultiSelect = false;
             this.lvSessions.Name = "lvSessions";

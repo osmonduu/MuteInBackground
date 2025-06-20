@@ -21,11 +21,11 @@ namespace MuteInBackground
     
     public partial class MuteInBackgroundForm : Form
     {
-        // GetForegroundWindow() -> returns HWND of the active window
+        // GetForegroundWindow -> returns HWND of the active window
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
 
-        // GetwindowThreadProcessId(hwnd, out processId) -> returns thread ID, outputs process ID
+        // GetwindowThreadProcessId -> returns thread ID, outputs process ID
         [DllImport("user32.dll", SetLastError = true)]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
@@ -76,10 +76,46 @@ namespace MuteInBackground
             mutedProcessNames = new List<string>();
             InitAudio();
 
+            // Listen for any new audio sessions
+            sessionManager.OnSessionCreated += SessionManager_OnSessionCreated;
+
             // Read stored RunAtStartup for consistency
             if (Properties.Settings.Default.RunAtStartup)
                 StartupHelper.UpdateStartupShortcut(true);
         }
+
+        private void SessionManager_OnSessionCreated(object sender, IAudioSessionControl newSession)
+        {
+            // Wrap IAudioSessionControl to get IAudioSessionControl2 functionality
+            var wrapper = new AudioSessionControl(newSession);
+            int pid = (int)wrapper.GetProcessID;
+            if (pid == 0) return;
+
+            string procName;
+            try { procName = Process.GetProcessById(pid).ProcessName.ToLowerInvariant(); }
+            catch { return; }
+
+            if ((mutedProcessNames.Contains(procName)) && (GetCurrentForegroundProcessName() != procName))
+            {
+                BeginInvoke((Action)(() => wrapper.SimpleAudioVolume.Mute = true));
+            }
+        }
+
+        private string GetCurrentForegroundProcessName()
+        {
+            // Get foreground window handle and get its pid
+            IntPtr hwnd = GetForegroundWindow();
+            GetWindowThreadProcessId(hwnd, out uint pid);
+            if (pid == 0) return null;
+
+            // Get process name from pid
+            string procName = null;
+            try { procName = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant(); }
+            catch { }
+
+            return procName;
+        }
+
 
         /// <summary>
         /// Callback method Win32 calls whenever the foreground window changes.
@@ -308,10 +344,10 @@ namespace MuteInBackground
                 .ToList();
 
             // Show process selection form with only up-to-date audio sessions
-            using (var dlg = new ProcessSelectForm(sessionManager, activeSessions))
+            using (var dlg = new ProcessSelectForm(tempManager, activeSessions))
             {
                 // Create handler and subscribe to SessionManager.OnSessionCreated before showing dialog
-                AudioSessionManager.SessionCreatedDelegate sessionCreatedHandler = (s, newSession) =>
+                AudioSessionManager.SessionCreatedDelegate dialogHandler = (s, newSession) =>
                 {
                     Invoke((Action)( () => 
                     {
@@ -319,7 +355,7 @@ namespace MuteInBackground
                     })
                     );
                 };
-                sessionManager.OnSessionCreated += sessionCreatedHandler;
+                sessionManager.OnSessionCreated += dialogHandler;
 
                 // Show the dialog
                 if (dlg.ShowDialog() == DialogResult.OK)
@@ -329,7 +365,10 @@ namespace MuteInBackground
                     // Avoid adding duplicates to the monitored apps list and form UI
                     if (!mutedProcessNames.Contains(selectedItem.Text))
                     {
+                        // Add to monitored apps list and immediately mute
                         mutedProcessNames.Add(selectedItem.Tag.ToString());
+                        MuteProcessAudio(selectedItem.Tag.ToString());
+
                         // Copy any new items from the dlg.ImageListSelectProc to ImageListMain
                         foreach (string key in dlg.SessionImageList.Images.Keys)
                         {
@@ -341,9 +380,8 @@ namespace MuteInBackground
                         lvApps.Items.Add(cloneLVItem);
                     }
                 }
-
                 // Unsubscribe from event after dialog is closed
-                sessionManager.OnSessionCreated -= sessionCreatedHandler;
+                sessionManager.OnSessionCreated -= dialogHandler;
             }
             // Dispose of temporary audio objects before exiting
             tempDevice.Dispose();
@@ -388,12 +426,18 @@ namespace MuteInBackground
                 return;
             }
 
+            // Unmute all monitored processes before closing
+            UnmuteAllMonitoredApps();
+
             // Undo the hook so Windows stops calling
             if (_winHook != IntPtr.Zero)
             {
                 UnhookWinEvent(_winHook);
                 _winHook = IntPtr.Zero;
             }
+
+            // Clean up audio session subscription
+            sessionManager.OnSessionCreated -= SessionManager_OnSessionCreated;
             // Call base so any other cleanup can run
             base.OnFormClosing(e);
         }
