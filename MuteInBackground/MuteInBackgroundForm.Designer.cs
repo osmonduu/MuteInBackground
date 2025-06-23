@@ -216,6 +216,7 @@
             // 
             this.lvApps.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lvApps.HideSelection = false;
+            this.lvApps.LargeImageList = this.imageListMain;
             this.lvApps.Location = new System.Drawing.Point(10, 0);
             this.lvApps.MultiSelect = false;
             this.lvApps.Name = "lvApps";
@@ -223,7 +224,7 @@
             this.lvApps.SmallImageList = this.imageListMain;
             this.lvApps.TabIndex = 4;
             this.lvApps.UseCompatibleStateImageBehavior = false;
-            this.lvApps.View = System.Windows.Forms.View.SmallIcon;
+            this.lvApps.View = System.Windows.Forms.View.List;
             // 
             // imageListMain
             // 

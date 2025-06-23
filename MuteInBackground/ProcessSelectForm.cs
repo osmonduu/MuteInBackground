@@ -11,6 +11,7 @@ using System.Windows.Forms;
 
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
+using System.IO;
 
 namespace MuteInBackground
 {
@@ -47,20 +48,20 @@ namespace MuteInBackground
         /// Adds the process display friendly name and icon to the ListView.
         /// </summary>
         /// <param name="proc"></param>
-        private void AddListViewItem (Process proc)
+        private void AddListViewItem(Process proc)
         {
             // Get display friendly name with version info (if possible)
             int pid = proc.Id;
             string exePath = IconHelper.GetExecutablePath(pid);
-            string displayName = proc.ProcessName;  // fallback if not available
+            string displayName = Path.GetFileNameWithoutExtension(exePath);  // fallback
             if (!string.IsNullOrEmpty(exePath))
             {
                 try
                 {
                     var vi = FileVersionInfo.GetVersionInfo(exePath);
-                    displayName = !string.IsNullOrWhiteSpace(vi.FileDescription) ? vi.FileDescription : vi.ProductName;
+                    displayName = !string.IsNullOrWhiteSpace(vi.FileDescription) ? vi.FileDescription : displayName;
                 }
-                catch { /* stick with processName otherwise */ }
+                catch { /* stick with file name otherwise */ }
             }
 
             // Pull the icon
@@ -72,10 +73,12 @@ namespace MuteInBackground
                 imageListSelectProc.Images.Add(key, icon.ToBitmap());
 
             // Create and add ListViewItem
+            exePath = exePath ?? proc.ProcessName;  // if exePath is null, fallback on process name
+            string exeName = Path.GetFileName(exePath) ?? proc.ProcessName; // if exeName fails because exePath is a process name, fallback on process name
             var item = new ListViewItem(displayName)
             {
                 ImageKey = key,
-                Tag = proc.ProcessName
+                Tag = exeName.ToLowerInvariant()
             };
             lvSessions.Items.Add(item);
         }

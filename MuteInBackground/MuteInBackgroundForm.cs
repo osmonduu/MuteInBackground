@@ -15,10 +15,11 @@ using NAudio.CoreAudioApi.Interfaces;
 
 using Microsoft.Win32;
 using System.IO;
+using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace MuteInBackground
 {
-    
+
     public partial class MuteInBackgroundForm : Form
     {
         // GetForegroundWindow -> returns HWND of the active window
@@ -37,13 +38,13 @@ namespace MuteInBackground
 
         // Delegate signature for the WinEvent callback
         private delegate void WinEventDelegate(
-            IntPtr  hWinEventHook,
-            uint    eventType,
-            IntPtr  hwnd,
-            int     idObject,
-            int     idChild,
-            uint    dwEventThread,
-            uint    dwmsEventTime
+            IntPtr hWinEventHook,
+            uint eventType,
+            IntPtr hwnd,
+            int idObject,
+            int idChild,
+            uint dwEventThread,
+            uint dwmsEventTime
         );
 
         [DllImport("user32.dll")]
@@ -58,22 +59,25 @@ namespace MuteInBackground
         );
 
         [DllImport("user32.dll")]
-        private static extern bool UnhookWinEvent( IntPtr hWinEventHook );
+        private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
-        private WinEventDelegate    _winDelegate; // keeps callback alive
-        private IntPtr              _winHook;   // hook handle needed to unhook
+        private WinEventDelegate _winDelegate; // keeps callback alive
+        private IntPtr _winHook;   // hook handle needed to unhook
 
         private MMDeviceEnumerator deviceEnum;
         private MMDevice defaultDevice;
         private AudioSessionManager sessionManager;
 
-        private List<string> mutedProcessNames;     // list of process names to be monitored
+       
+        private readonly HashSet<string> mutedExeNames = new HashSet<string>(); // list of process executable paths to be monitored
         private string lastForegroundMonitored = null;  // used to track the previous foreground app to stop repeated COM calls which causes stuttering audio
 
+        /// <summary>
+        /// Constructor for main form window
+        /// </summary>
         public MuteInBackgroundForm()
         {
             InitializeComponent();
-            mutedProcessNames = new List<string>();
             InitAudio();
 
             // Listen for any new audio sessions
@@ -82,38 +86,58 @@ namespace MuteInBackground
             // Read stored RunAtStartup for consistency
             if (Properties.Settings.Default.RunAtStartup)
                 StartupHelper.UpdateStartupShortcut(true);
+
+            // Install hook immediately if auto-mute is enabled by default (checked).
+            if (chkEnableAutoMute.Checked)
+                EnableAutoMute();
         }
 
+        /// <summary>
+        /// Used for whenever a new child process is created and its parent process is monitored.
+        /// If the parent process is currently in the foreground, mute the child process as well.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="newSession"></param>
         private void SessionManager_OnSessionCreated(object sender, IAudioSessionControl newSession)
         {
-            // Wrap IAudioSessionControl to get IAudioSessionControl2 functionality
+            // Wrap IAudioSessionControl to get IAudioSessionControl2 functionality - able to get pid
             var wrapper = new AudioSessionControl(newSession);
             int pid = (int)wrapper.GetProcessID;
             if (pid == 0) return;
 
-            string procName;
-            try { procName = Process.GetProcessById(pid).ProcessName.ToLowerInvariant(); }
-            catch { return; }
+            // Get the new session and foreground window executable paths
+            string sessPath = IconHelper.GetExecutablePath(pid);
+            // Fallback on processname if exec path not available
+            string sessName = Path.GetFileName(sessPath) ?? GetProcessNameSafe(pid).ToLowerInvariant();
+            string foregroundName = GetCurrentForegroundExeName();
 
-            if ((mutedProcessNames.Contains(procName)) && (GetCurrentForegroundProcessName() != procName))
+            // If the new session is monitored and not in the foreground, mute it
+            if (sessName != null
+                && mutedExeNames.Contains(sessName)
+                && !string.Equals(sessName, foregroundName, StringComparison.OrdinalIgnoreCase))
             {
                 BeginInvoke((Action)(() => wrapper.SimpleAudioVolume.Mute = true));
             }
+
         }
 
-        private string GetCurrentForegroundProcessName()
+        /// <summary>
+        /// Gets the foreground window's file name. Returns null if unable to do so.
+        /// NOT LOWERCASE.
+        /// </summary>
+        /// <returns></returns>
+        private string GetCurrentForegroundExeName()
         {
             // Get foreground window handle and get its pid
             IntPtr hwnd = GetForegroundWindow();
             GetWindowThreadProcessId(hwnd, out uint pid);
             if (pid == 0) return null;
 
-            // Get process name from pid
-            string procName = null;
-            try { procName = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant(); }
-            catch { }
-
-            return procName;
+            // Get the process' executable path and return its executable name
+            string exePath = IconHelper.GetExecutablePath((int)pid);
+            // Fallback on process name if path not available
+            string retString = Path.GetFileName(exePath) ?? GetProcessNameSafe((int)pid);
+            return retString;
         }
 
 
@@ -151,47 +175,99 @@ namespace MuteInBackground
             };
 
         /// <summary>
+        /// DEBUG: Prints all sessions using new AudioSessionManager. Tested that using old "sessionManager" returns
+        /// only the sessions it has seen when the form has started, not the up-to-date sessions.
+        /// </summary>
+        private void printAllSessions()
+        {
+            var listToPrint = new List<string>();
+
+            var tempEnum = new MMDeviceEnumerator();
+            var tempDevice = tempEnum.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            var tempManager = tempDevice.AudioSessionManager;
+
+            var sessions = tempManager.Sessions;
+            for (int i = 0; i < sessions.Count; i++)
+            {
+                AudioSessionControl sess = sessions[i];
+                using (sess)
+                {
+                    // Read PID of this session
+                    int sessPid = (int)sess.GetProcessID;
+                    if (sessPid == 0) continue;   // skip system sound session
+
+                    // Get session's executable name
+                    string sessPath = IconHelper.GetExecutablePath(sessPid);
+                    // Fallback on process name if path not available
+                    string sessName = Path.GetFileName(sessPath) ?? GetProcessNameSafe(sessPid);
+
+                    // Add to list
+                    listToPrint.Add(sessName);
+                }
+            }
+            Debug.WriteLine(string.Join(", ", listToPrint));
+
+            tempManager.Dispose();
+            tempDevice.Dispose();
+            tempEnum.Dispose();
+        }
+
+
+        /// <summary>
         /// Gets the foreground window process and mutes/unmutes
-        /// the process based on if it is on the monitored apps list (mutedProcessNames).
+        /// the process based on if it is on the list of monitored apps.
         /// </summary>
         /// <param name="hwnd"></param>
         private void HandleForegroundChange(IntPtr hwnd)
         {
             if (hwnd == IntPtr.Zero) return;
 
+            // DEBUG --------------
+            //printAllSessions();
+            // --------------------
+
+            // DEBUG --------------
+            //lblMonitoredApps.Text = $"Foreground: /{GetCurrentForegroundExeName().ToLowerInvariant()}/ \nList: {String.Join(", ", mutedExeNames)}";
+            // --------------------
+
             // Get process ID of the window
             GetWindowThreadProcessId(hwnd, out uint pid);
             if (pid == 0) return;
 
-            // Get process name from pid
-            string procName;
-            try { procName = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant(); }
-            catch { return; }   // process exited before we can get its name
+            // Get foreground name from pid
+            string foregroundPath = IconHelper.GetExecutablePath((int)pid);
+            // Fallback on process name if exec path not available
+            string foregroundName = Path.GetFileName(foregroundPath).ToLowerInvariant() ?? GetProcessNameSafe((int)pid).ToLowerInvariant();
 
-            // Ignore any OS shell windows
-            if (_skipProcs.Contains(procName))
-                return;
+            // DEBUG --------------
+            //lblMonitoredApps.Text = $"Foreground: {foregroundName} " +
+            //    $"\nList: {String.Join(", ", mutedExeNames)} " +
+            //    $"\n ProcName: {GetProcessNameSafe((int)pid).ToLowerInvariant()}";
+            // --------------------
 
             // Do nothing if window was handled already and nothing changed
-            if (procName == lastForegroundMonitored) return;
+            if (foregroundName == lastForegroundMonitored) return;
+            lastForegroundMonitored = foregroundName;
 
-            lastForegroundMonitored = procName;
+            // Ignore any OS shell windows
+            if (_skipProcs.Contains(Path.GetFileNameWithoutExtension(foregroundPath)))
+                return;
 
-            // If the foreeground process is in the monitored list, unmute it and mute all the others
-            if (mutedProcessNames.Contains(procName))
+            // If the foreground process is in the monitored list, unmute it and mute all the others
+            if (mutedExeNames.Contains(foregroundName))
             {
-                UnmuteProcessAudio(procName);
-                lblStatus.Text = $"Unmuted: {procName}";
+                UnmuteProcessAudio(foregroundName);
                 // Mute all other monitored background processes
-                foreach (var backgroundProc in mutedProcessNames.Where(n => n != procName))
+                //foreach (var backgroundProc in mutedExeNames.Where(n => !n.Equals(foregroundName, StringComparison.OrdinalIgnoreCase)))
+                foreach (var backgroundProc in mutedExeNames.Where(n => n != foregroundName))
                     MuteProcessAudio(backgroundProc);
             }
             // Otherwise mute all monitored apps
             else
             {
-                foreach (var procs in mutedProcessNames)
+                foreach (var procs in mutedExeNames)
                     MuteProcessAudio(procs);
-                lblStatus.Text = (mutedProcessNames.Count > 0) ? $"Muting {string.Join(", ", mutedProcessNames)}" : "No apps to mute";
+                lblStatus.Text = (mutedExeNames.Count > 0) ? $"Muting {mutedExeNames.Count} app(s)" : "No apps to mute";
             }
         }
 
@@ -210,14 +286,29 @@ namespace MuteInBackground
         }
 
         /// <summary>
-        /// Mutes the process by name.
+        /// Disposes all the objects used to interact with windows audio API.
         /// </summary>
-        /// <param name="processName"></param>
-        private void MuteProcessAudio(string processName)
+        private void DisposeAudio()
         {
-            if (string.IsNullOrWhiteSpace(processName)) return;
+            sessionManager.Dispose();
+            defaultDevice.Dispose();
+            deviceEnum.Dispose();
+        }
 
-            var sessions = sessionManager.Sessions; // SessionCollection of AudioSessionControl
+        /// <summary>
+        /// Mutes the process by comparing executable paths.
+        /// </summary>
+        /// <param name="processExePath"></param>
+        private void MuteProcessAudio(string processExeName)
+        {
+            if (string.IsNullOrWhiteSpace(processExeName)) return;
+
+            // Temporary audio objects to get up-to-date sessions
+            var tempEnum = new MMDeviceEnumerator();
+            var tempDevice = tempEnum.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            var tempManager = tempDevice.AudioSessionManager;
+
+            var sessions = tempManager.Sessions; // SessionCollection of AudioSessionControl
             for (int i = 0; i < sessions.Count; i++)
             {
                 AudioSessionControl sess = sessions[i];
@@ -227,43 +318,67 @@ namespace MuteInBackground
                     int sessPid = (int)sess.GetProcessID;
                     if (sessPid == 0) continue;   // skip system sound session
 
-                    string p;
-                    try { p = Process.GetProcessById(sessPid).ProcessName.ToLowerInvariant(); }
-                    catch { continue; }   // continue if process has exited
+                    // Get session's executable name
+                    string sessPath = IconHelper.GetExecutablePath(sessPid);
+                    // Fallback on process name if path not available
+                    string sessName = Path.GetFileName(sessPath) ?? GetProcessNameSafe(sessPid);
 
-                    // Mute the process if it is unmuted
-                    if (p.Equals(processName, StringComparison.OrdinalIgnoreCase) && !sess.SimpleAudioVolume.Mute)
+                    // Compare exe names and mute the process if it is unmuted
+                    if (string.Equals(sessName, processExeName, StringComparison.OrdinalIgnoreCase)
+                        && !sess.SimpleAudioVolume.Mute)
+                    {
                         sess.SimpleAudioVolume.Mute = true;
+                    }
                 }
             }
+            // Dispose of all temporary audio objects
+            tempManager.Dispose();
+            tempDevice.Dispose();
+            tempEnum.Dispose();
         }
 
         /// <summary>
-        /// Unmutes the process by name.
+        /// Unmutes the process by comparing executable paths.
         /// </summary>
-        /// <param name="processName"></param>
-        private void UnmuteProcessAudio(string processName)
+        /// <param name="processExePath"></param>
+        private void UnmuteProcessAudio(string processExeName)
         {
-            if (string.IsNullOrWhiteSpace(processName)) return;
+            if (string.IsNullOrWhiteSpace(processExeName)) return;
 
-            var sessions = sessionManager.Sessions;
+            // Temporary audio objects to get up-to-date sessions
+            var tempEnum = new MMDeviceEnumerator();
+            var tempDevice = tempEnum.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            var tempManager = tempDevice.AudioSessionManager;
+
+            var sessions = tempManager.Sessions; // SessionCollection of AudioSessionControl
             for (int i = 0; i < sessions.Count; i++)
             {
                 AudioSessionControl sess = sessions[i];
                 using (sess)
                 {
+                    // Read PID of this session
                     int sessPid = (int)sess.GetProcessID;
                     if (sessPid == 0) continue;   // skip system sound session
 
-                    string p;
-                    try { p = Process.GetProcessById(sessPid).ProcessName.ToLowerInvariant(); }
-                    catch { continue; }  // continue if process has exited
+                    // Get session's executable name
+                    string sessPath = IconHelper.GetExecutablePath(sessPid);
+                    // Fallback on process name if path not available
+                    string sessName = Path.GetFileName(sessPath) ?? GetProcessNameSafe(sessPid);
 
-                    // Unmute the process if it is muted
-                    if (p.Equals(processName, StringComparison.OrdinalIgnoreCase) && sess.SimpleAudioVolume.Mute)
+                    // Compare exe names and mute the process if it is unmuted
+                    if (string.Equals(sessName, processExeName, StringComparison.OrdinalIgnoreCase)
+                        && sess.SimpleAudioVolume.Mute)
+                    {
                         sess.SimpleAudioVolume.Mute = false;
+                    }
                 }
             }
+            // Dispose of all temporary audio objects
+            tempManager.Dispose();
+            tempDevice.Dispose();
+            tempEnum.Dispose();
+            // Update status label
+            lblStatus.Text = $"Unmuted: {Path.GetFileNameWithoutExtension(processExeName)}";
         }
 
         /// <summary>
@@ -271,8 +386,26 @@ namespace MuteInBackground
         /// </summary>
         private void UnmuteAllMonitoredApps()
         {
-            foreach (string name in mutedProcessNames)
-                UnmuteProcessAudio(name);
+            // Temporary audio objects to get up-to-date sessions
+            var tempEnum = new MMDeviceEnumerator();
+            var tempDevice = tempEnum.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            var tempManager = tempDevice.AudioSessionManager;
+
+            // Iterate through all the sessions and unmute them 
+            var sessions = tempManager.Sessions; // SessionCollection of AudioSessionControl
+            for (int i = 0; i < sessions.Count; i++)
+            {
+                AudioSessionControl sess = sessions[i];
+                using (sess)
+                {
+                    sess.SimpleAudioVolume.Mute = false;
+                }
+            }
+
+            // Dispose of all temporary audio objects
+            tempManager.Dispose();
+            tempDevice.Dispose();
+            tempEnum.Dispose();
         }
 
         /// <summary>
@@ -284,40 +417,44 @@ namespace MuteInBackground
         private void chkEnableAutoMute_CheckedChanged(object sender, EventArgs e)
         {
             if (chkEnableAutoMute.Checked)
-            {
-                // Create and store delegate instance in variable so it isn't garbage collected
-                _winDelegate = new WinEventDelegate(WinEventProc);
-
-                // Install hook so WinEventProc() is called whenever EVENT_SYSTEM_FOREGROUND fires
-                _winHook = SetWinEventHook(
-                    EVENT_SYSTEM_FOREGROUND,
-                    EVENT_SYSTEM_FOREGROUND,
-                    IntPtr.Zero,
-                    _winDelegate,   // callback
-                    0,
-                    0,
-                    WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS
-                );
-
-                // Force call to handler to be in a known state immediately after enabling
-                HandleForegroundChange(GetForegroundWindow());
-
-                lblStatus.Text = "Auto-Mute ENABLED";
-            }
+                EnableAutoMute();
             else
+                DisableAutoMute();
+        }
+
+        private void EnableAutoMute()
+        {
+            // Create and store delegate instance in variable so it isn't garbage collected
+            _winDelegate = new WinEventDelegate(WinEventProc);
+
+            // Install hook so WinEventProc() is called whenever EVENT_SYSTEM_FOREGROUND fires
+            _winHook = SetWinEventHook(
+                EVENT_SYSTEM_FOREGROUND,
+                EVENT_SYSTEM_FOREGROUND,
+                IntPtr.Zero,
+                _winDelegate,   // callback
+                0,
+                0,
+                WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS
+            );
+            // Force call to handler to be in a known state immediately after enabling
+            HandleForegroundChange(GetForegroundWindow());
+
+            lblStatus.Text = "Auto-Mute ENABLED";
+        }
+
+        private void DisableAutoMute()
+        {
+            // Remove hook
+            if (_winHook != IntPtr.Zero)
             {
-                // Remove hook
-                if (_winHook != IntPtr.Zero)
-                {
-                    UnhookWinEvent(_winHook);
-                    _winHook = IntPtr.Zero;
-                }
-
-                // Restore all app volumes
-                UnmuteAllMonitoredApps();
-
-                lblStatus.Text = "Auto-Mute DISABLED";
+                UnhookWinEvent(_winHook);
+                _winHook = IntPtr.Zero;
             }
+            // Restore all app volumes
+            UnmuteAllMonitoredApps();
+
+            lblStatus.Text = "Auto-Mute DISABLED";
         }
 
         /// <summary>
@@ -327,17 +464,17 @@ namespace MuteInBackground
         /// <param name="e"></param>
         private void btnAdd_Click(object sender, EventArgs e)
         {
-            // Initialize new temporary enumerator and session manager to get up-to-date sessions
+            // Initialize new temporary enumerator and session manager to get up-to-date sessions without interfering
+            // with existing AudioSessionManager
             var tempEnum = new MMDeviceEnumerator();
             var tempDevice = tempEnum.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
             var tempManager = tempDevice.AudioSessionManager;
 
             // Filter and take snapshot of current sessions
-            var sessionCollection = tempManager.Sessions;
-            var sessions = new List<AudioSessionControl>(sessionCollection.Count);
-            for (int i = 0; i < sessionCollection.Count; i++)
+            var sessions = new List<AudioSessionControl>();
+            for (int i = 0; i < tempManager.Sessions.Count; i++)
             {
-                sessions.Add(sessionCollection[i]);
+                sessions.Add(tempManager.Sessions[i]);
             }
             var activeSessions = sessions
                 .Where(s => s.State != AudioSessionState.AudioSessionStateExpired && s.GetProcessID != 0)
@@ -349,25 +486,27 @@ namespace MuteInBackground
                 // Create handler and subscribe to SessionManager.OnSessionCreated before showing dialog
                 AudioSessionManager.SessionCreatedDelegate dialogHandler = (s, newSession) =>
                 {
-                    Invoke((Action)( () => 
-                    {
-                        dlg.AddSessionControl(newSession);
-                    })
-                    );
+                    Invoke((Action)(() => dlg.AddSessionControl(newSession)));
                 };
-                sessionManager.OnSessionCreated += dialogHandler;
+                tempManager.OnSessionCreated += dialogHandler;
 
                 // Show the dialog
                 if (dlg.ShowDialog() == DialogResult.OK)
                 {
-                    // Get the selected process from the dialog
+                    // Get the selected process from the dialog and its executable path
                     ListViewItem selectedItem = dlg.SelectedProcess;
+                    string exeName = selectedItem.Tag.ToString();
                     // Avoid adding duplicates to the monitored apps list and form UI
-                    if (!mutedProcessNames.Contains(selectedItem.Text))
+                    if (!mutedExeNames.Contains(exeName))
                     {
-                        // Add to monitored apps list and immediately mute
-                        mutedProcessNames.Add(selectedItem.Tag.ToString());
-                        MuteProcessAudio(selectedItem.Tag.ToString());
+                        // Add to monitored apps list and immediately mute if foreground process
+                        mutedExeNames.Add(exeName);
+                        lblStatus.Text = $"Added {Path.GetFileNameWithoutExtension(exeName)}";
+                        if (chkEnableAutoMute.Checked
+                            && string.Equals(exeName, GetCurrentForegroundExeName(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            MuteProcessAudio(exeName);
+                        }
 
                         // Copy any new items from the dlg.ImageListSelectProc to ImageListMain
                         foreach (string key in dlg.SessionImageList.Images.Keys)
@@ -381,9 +520,10 @@ namespace MuteInBackground
                     }
                 }
                 // Unsubscribe from event after dialog is closed
-                sessionManager.OnSessionCreated -= dialogHandler;
+                tempManager.OnSessionCreated -= dialogHandler;
             }
             // Dispose of temporary audio objects before exiting
+            tempManager.Dispose();
             tempDevice.Dispose();
             tempEnum.Dispose();
         }
@@ -403,8 +543,10 @@ namespace MuteInBackground
             string procName = lvItem.Tag.ToString();
             UnmuteProcessAudio(procName);
 
-            mutedProcessNames.Remove(procName);
+            mutedExeNames.Remove(procName);
             lvApps.Items.Remove(lvItem);
+
+            lblStatus.Text = $"Removed {Path.GetFileNameWithoutExtension(procName)}";
         }
 
         /// <summary>
@@ -438,6 +580,8 @@ namespace MuteInBackground
 
             // Clean up audio session subscription
             sessionManager.OnSessionCreated -= SessionManager_OnSessionCreated;
+            // Dispose of audio objects
+            DisposeAudio();
             // Call base so any other cleanup can run
             base.OnFormClosing(e);
         }
@@ -447,9 +591,9 @@ namespace MuteInBackground
         /// </summary>
         /// <param name="pid"></param>
         /// <returns></returns>
-        private string GetProcessNameSafe(uint pid)
+        private string GetProcessNameSafe(int pid)
         {
-            try { return Process.GetProcessById((int)pid).ProcessName; }
+            try { return Process.GetProcessById(pid).ProcessName; }
             catch (ArgumentException) { return null; }
         }
 
@@ -507,27 +651,7 @@ namespace MuteInBackground
             }
         }
 
-        /// <summary>
-        /// Debug method to show all sessions
-        /// </summary>
-        private void DumpAllSessions()
-        {
-            var sb = new StringBuilder();
-            var raw = sessionManager.Sessions;
-            for (int i = 0; i < raw.Count; i++)
-            {
-                var s = raw[i];
-                string procName = s.GetProcessID != 0 ? GetProcessNameSafe(s.GetProcessID) : "(system)";
-
-                sb.AppendLine(
-                    $"#{i}: PID = {s.GetProcessID,-6} " +
-                    $"State = {s.State,-8} " +
-                    $"Name = {procName,-20}" +
-                    $"Name = \"{s.DisplayName}\"");
-            }
-            MessageBox.Show(sb.ToString(), "All Audio Sessions");
-        }
-
+        // END OF NAMESPACE
     }
 
     /// <summary>
@@ -546,7 +670,7 @@ namespace MuteInBackground
         /// <param name="enable"></param>
         public static void UpdateStartupShortcut(bool enable)
         {
-            // Open HKCU key settings with write acess. Will automatically block and dispose when done.
+            // Open HKCU key settings with write acess. Will automatically block. Disposes when done.
             using (var key = Registry.CurrentUser.OpenSubKey(RunKey, true))
             {
                 // Enbaling run on launch
