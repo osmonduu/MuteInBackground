@@ -220,15 +220,10 @@ namespace MuteInBackground
         /// <param name="hwnd"></param>
         private void HandleForegroundChange(IntPtr hwnd)
         {
+            // Return in case window handle is null
             if (hwnd == IntPtr.Zero) return;
-
-            // DEBUG --------------
-            //printAllSessions();
-            // --------------------
-
-            // DEBUG --------------
-            //lblMonitoredApps.Text = $"Foreground: /{GetCurrentForegroundExeName().ToLowerInvariant()}/ \nList: {String.Join(", ", mutedExeNames)}";
-            // --------------------
+            // Retrun immediately if no apps are being monitored to avoid wasting resources
+            if (mutedExeNames.Count == 0) return;
 
             // Get process ID of the window
             GetWindowThreadProcessId(hwnd, out uint pid);
@@ -238,12 +233,6 @@ namespace MuteInBackground
             string foregroundPath = IconHelper.GetExecutablePath((int)pid);
             // Fallback on process name if exec path not available
             string foregroundName = Path.GetFileName(foregroundPath).ToLowerInvariant() ?? GetProcessNameSafe((int)pid).ToLowerInvariant();
-
-            // DEBUG --------------
-            //lblMonitoredApps.Text = $"Foreground: {foregroundName} " +
-            //    $"\nList: {String.Join(", ", mutedExeNames)} " +
-            //    $"\n ProcName: {GetProcessNameSafe((int)pid).ToLowerInvariant()}";
-            // --------------------
 
             // Do nothing if window was handled already and nothing changed
             if (foregroundName == lastForegroundMonitored) return;
