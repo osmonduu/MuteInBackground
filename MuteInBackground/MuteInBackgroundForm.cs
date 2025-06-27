@@ -163,6 +163,8 @@ namespace MuteInBackground
         {
             // Ignore all events unless top window change
             if (idObject != OBJID_WINDOW) return;
+            // Retrun immediately if no apps are being monitored to avoid wasting resources
+            if (mutedExeNames.Count == 0) return;
             // P/Invoke HandleForegroundChange in order to work in UI thread and access UI variables.
             BeginInvoke(new Action(() => HandleForegroundChange(hwnd)));
         }
